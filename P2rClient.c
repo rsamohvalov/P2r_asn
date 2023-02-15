@@ -49,8 +49,8 @@ void* P2r_client_test(void* param) {
         message->message_type = MessageTypes_id_p2r_speed_level_notification;
         message->connection_id.fp_id = i;
         message->connection_id.rm_id = i * 5;
-       
-        message->parameters.present = 1;
+
+        message->parameters.present = Parameters_PR_speed_level_notification;
         message->parameters.choice.speed_level_notification.speed = 123.45;
 
         printf("client: count %d\n\n", i);
@@ -63,29 +63,9 @@ void* P2r_client_test(void* param) {
                     fprintf(stderr, "Constraint validation failed: %s\n", errbuf);
                 }
         */
-
-        /*       char enc_buffer[4096] = {0};
-               int enc_buffer_size = 4096;
-               Parameters_t *params = (Parameters_t *)calloc(1, sizeof(Parameters_t));
-               if( params ) {
-                   params->present = 1;
-                   params->choice.speed_level_notification = *parameter;
-                   er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Parameters, params, enc_buffer, enc_buffer_size);
-                   if (er.encoded == -1)
-                   {
-                       perror("failed to encode");
-                       printf("Failed to encode %s  %s\n", asn_DEF_Parameters.name, er.failed_type->name);
-                   }
-                   else
-                   {
-                       printf("%s encoded in % zd bytes\n", asn_DEF_Parameters.name, er.encoded);
-                   }
-               }
-       */
         char enc_buffer[4096] = {0};
         int enc_buffer_size = 4096;
         er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, enc_buffer, enc_buffer_size);
-        //er = asn_encode(0, ATS_BER, &asn_DEF_Message, message, send_message, &sock);
         if (er.encoded == -1)
         {
             perror("failed to encode");
@@ -94,7 +74,6 @@ void* P2r_client_test(void* param) {
         else
         {
             send_message(enc_buffer, er.encoded, &sock );
-            // printf("%s encoded in % zd bytes\n", asn_DEF_Message.name, er.encoded);
         }       
         free(message);
         sleep(1);
