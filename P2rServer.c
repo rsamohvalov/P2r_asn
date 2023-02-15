@@ -12,6 +12,7 @@
 #include <asn_internal.h>
 #include "Message.h"
 
+
 void *P2r_connection_handler(void *socket_desc)
 {
     int sock = *(int *)socket_desc;
@@ -33,9 +34,9 @@ void *P2r_connection_handler(void *socket_desc)
             switch (rval.code) {            
                 case RC_OK: {
                     //CALLBACK
-                    printf("OK. Calling endpoint\n");
+                    printf("OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
                     asn_fprint(stderr, &asn_DEF_Message, P2R_message);
-                    printf("speed level: %2f\n", P2R_message->parameters.choice.speed_level_notification.speed);
+                    //printf("speed level: %2f\n", P2R_message->parameters.choice.speed_level_notification.speed);
                     break;
                 }
                 case RC_WMORE: {
