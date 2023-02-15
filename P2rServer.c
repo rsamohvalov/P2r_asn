@@ -28,13 +28,14 @@ void *P2r_connection_handler(void *socket_desc)
             ASN_STRUCT_RESET(asn_DEF_Message, P2R_message);
             printf("server: received %d\n", read_size);
             printf("decoding...\n");
-            rval = asn_decode(0, ATS_BER, &asn_DEF_Message, (void **)&P2R_message, client_message, read_size);
+            rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, client_message, read_size);
             printf("rval.code = %d\n", rval.code);
             switch (rval.code) {            
                 case RC_OK: {
                     //CALLBACK
                     printf("OK. Calling endpoint\n");
                     asn_fprint(stderr, &asn_DEF_Message, P2R_message);
+                    printf("speed level: %2f\n", P2R_message->parameters.choice.speed_level_notification.speed);
                     break;
                 }
                 case RC_WMORE: {
@@ -60,7 +61,7 @@ void *P2r_connection_handler(void *socket_desc)
             break;
         }
     }
-    close(sock);
+    shutdown(sock, SHUT_RDWR);
     free(socket_desc);
 
     return 0;

@@ -51,8 +51,9 @@ void* P2r_client_test(void* param) {
         message->connection_id.rm_id = i * 5;
        
         message->parameters.present = 1;
-        message->parameters.choice.speed_level_notification.speed = 0.1*i;
+        message->parameters.choice.speed_level_notification.speed = 123.45;
 
+        printf("client: count %d\n\n", i);
         /*
                 char errbuf[128];
                 size_t errlen = sizeof(errbuf);
@@ -81,10 +82,6 @@ void* P2r_client_test(void* param) {
                    }
                }
        */
-
-
-
-      
         char enc_buffer[4096] = {0};
         int enc_buffer_size = 4096;
         er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, enc_buffer, enc_buffer_size);
@@ -103,6 +100,7 @@ void* P2r_client_test(void* param) {
         sleep(1);
     }
 
-    close(sock);
+    shutdown(sock, SHUT_RDWR );
+    //close(sock);
     return 0;
 }
