@@ -31,8 +31,24 @@ size_t send_buffer_size = 4096;
 
 extern ret_val send_message(void *buffer, size_t size, void *ctx);
 
-extern ret_val EncodeAndSendMessage(Message_t *message, int *sock);
-
+ret_val ServereEncodeAndSendMessage(Message_t *message, int *sock)
+{
+    asn_enc_rval_t er;
+    ret_val ret = Error;
+    er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, send_buffer, send_buffer_size);
+    if (er.encoded == -1)
+    {
+        perror("failed to encode");
+        printf("Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
+        ret = EncodingError;
+    }
+    else
+    {
+        ret = send_message(send_buffer, er.encoded, &sock);
+    }
+    free(message);
+    return ret;
+}
 
 ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
 {
@@ -51,7 +67,7 @@ ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
     message->parameters.present = Parameters_PR_session_termination_warning_ack;
     message->parameters.choice.session_termination_warning_ack.cause = cause;
 
-    return EncodeAndSendMessage(message, sock);
+    return ServereEncodeAndSendMessage(message, sock);
 }
 
 ret_val MessageParser( Message_t* message, int* sock ) {
@@ -59,7 +75,7 @@ ret_val MessageParser( Message_t* message, int* sock ) {
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
-        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        //return SendP2RSessionTerminationWarningAck(Cause_success, sock );
         break;
     }    
     default:

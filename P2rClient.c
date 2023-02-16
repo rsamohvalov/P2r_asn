@@ -23,10 +23,10 @@ typedef enum _ret
   Error = 5
 } ret_val;
 
-ret_val send_message(void *buffer, size_t size, void *ctx)
+ret_val send_message(void *send_buffer, size_t send_buffer_size, void *ctx)
 {
     int sock = *((int *)ctx);
-    if (send(sock, buffer, size, 0) < 0)
+    if (send(sock, send_buffer, send_buffer_size, 0) < 0)
     {
         printf("client: send failed\n");
         return ServerIsUnreachable;
@@ -216,7 +216,7 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     if( ret != Success ) {
         return ret;
     }
-    message = receive_message(buffer, size, &sock);
+    //message = receive_message(buffer, size, &sock);
 }
 
 void *P2r_client_test(void *param)
