@@ -11,44 +11,119 @@
 #include <asn_application.h>
 #include <asn_internal.h>
 #include "Message.h"
+#include "Cause.h"
 
+typedef enum _ret
+{
+    Success = 0,
+    NotEnoughMemory = 1,
+    TransportInitError = 2,
+    ServerIsUnreachable = 3,
+    EncodingError = 4,
+    Error = 5
+} ret_val;
+
+extern long P2r_proto_major;
+extern long P2r_proto_minor;
+const long fp_id = 11;
+char send_buffer[4096] = {0};
+size_t send_buffer_size = 4096;
+
+extern ret_val send_message(void *buffer, size_t size, void *ctx);
+
+extern ret_val EncodeAndSendMessage(Message_t *message, int *sock);
+
+
+ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
+{
+    Message_t *message = 0;
+    message = (Message_t *)calloc(1, sizeof(Message_t));
+    if (!message)
+    {
+        return NotEnoughMemory;
+    }
+    message->protocol_version.major_version = P2r_proto_major;
+    message->protocol_version.minor_version = P2r_proto_minor;
+    message->connection_id.fp_id = 0;
+    message->connection_id.rm_id = fp_id;
+
+    message->message_type = MessageTypes_id_p2r_session_termination_warning_ack;
+    message->parameters.present = Parameters_PR_session_termination_warning_ack;
+    message->parameters.choice.session_termination_warning_ack.cause = cause;
+
+    return EncodeAndSendMessage(message, sock);
+}
+
+ret_val MessageParser( Message_t* message, int* sock ) {
+    asn_fprint(stderr, &asn_DEF_Message, message);
+    switch (message->message_type)
+    {
+    case MessageTypes_id_p2r_session_termination_warning: {
+        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        break;
+    }    
+    default:
+        break;
+    }
+}
 
 void *P2r_connection_handler(void *socket_desc)
 {
     int sock = *(int *)socket_desc;
     int read_size;
-    char client_message[2000];
+    char client_message[4096];
     asn_dec_rval_t rval;
     Message_t *P2R_message = 0;
+    int bytes_processed = 0;
+    int more_to_read_offset = 0;
 
     while ( 1 )
     {
         read_size = 0;
 
-        while( (read_size = recv( sock, client_message, 2000, 0 ) ) > 0 ) {
-            ASN_STRUCT_RESET(asn_DEF_Message, P2R_message);
-            printf("server: received %d\n", read_size);
-            printf("decoding...\n");
-            rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, client_message, read_size);
-            printf("rval.code = %d\n", rval.code);
-            switch (rval.code) {            
-                case RC_OK: {
-                    //CALLBACK
-                    printf("OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
-                    asn_fprint(stderr, &asn_DEF_Message, P2R_message);
-                    //printf("speed level: %2f\n", P2R_message->parameters.choice.speed_level_notification.speed);
-                    break;
-                }
-                case RC_WMORE: {
-                    printf("consumed %ld bytes of %d readed\n", rval.consumed, read_size);
-                    break;
-                }
-                case RC_FAIL: {
-                    printf("Error while parsing\n");
-                    break;
-                }
+        while ((read_size = recv(sock, client_message + more_to_read_offset, 4096 - more_to_read_offset, 0)) > 0)
+        {
+            printf("server: received %d  more_to_read_offset: %d\n", read_size, more_to_read_offset);
+            memset(&rval, 0, sizeof(asn_dec_rval_t));
+            bytes_processed = 0;
+            read_size += more_to_read_offset;
+            while (bytes_processed < read_size)
+            {
+                ASN_STRUCT_RESET(asn_DEF_Message, P2R_message);
+                printf("decoding...\n");
+                rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, client_message + bytes_processed, read_size - bytes_processed);
+                printf("rval.code = %d\n", rval.code);
+                switch (rval.code)
+                {
+                    case RC_OK:
+                    {
+                        printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+                        bytes_processed += rval.consumed;
+                        more_to_read_offset = 0;
+                        MessageParser(P2R_message, &sock);
+                        break;
+                    }
+                    case RC_WMORE:
+                    {
+                        printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+                        memcpy(client_message, client_message + bytes_processed, read_size - bytes_processed);
+                        more_to_read_offset = read_size - bytes_processed;
+                        bytes_processed = 9999999;
+                        break;
+                    }
+                    case RC_FAIL:
+                    {
+                        printf("Serer: error while decoding\n");
+                        close(sock);
+                        free(socket_desc);
+                        return 0;
+                    }
+                }                
             }
- //               write(sock, client_message, strlen(client_message));
+            if (more_to_read_offset)
+            {
+                continue;
+            }
         }
         if (read_size == 0)
         {

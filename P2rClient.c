@@ -2,15 +2,7 @@
 #include "Message.h"
 #include "Reason.h"
 
-int send_message( const void* buffer, size_t size, void* ctx ) {
-    int sock = *((int*)ctx);
-    if (send(sock, buffer, size, 0) < 0)
-    {
-        printf("client: send failed\n");
-        return 1;
-    }
-    return 0;
-}
+
 
 long rm_id = 2;
 void *buffer = 0;
@@ -27,8 +19,57 @@ typedef enum _ret
   NotEnoughMemory = 1,
   TransportInitError = 2,
   ServerIsUnreachable = 3,
-  EncodingError = 4 
+  EncodingError = 4,
+  Error = 5
 } ret_val;
+
+ret_val send_message(void *buffer, size_t size, void *ctx)
+{
+    int sock = *((int *)ctx);
+    if (send(sock, buffer, size, 0) < 0)
+    {
+        printf("client: send failed\n");
+        return ServerIsUnreachable;
+    }
+    return Success;
+}
+
+Message_t *receive_message( void *buffer, size_t size, void *ctx)
+{
+    int sock = *((int *)ctx);
+    int read_size = 0;
+    asn_dec_rval_t rval;
+    Message_t *P2R_message = 0;
+        if( (read_size = recv(sock, buffer, size, 0)) > 0)
+        {
+            printf("client: received %d\n", read_size);
+                
+                printf("decoding...\n");
+                rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, buffer, read_size );
+                printf("rval.code = %d\n", rval.code);
+                switch (rval.code)
+                {
+                case RC_OK:
+                {
+                    printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+                    return P2R_message;
+                }
+                case RC_WMORE:
+                {
+                    printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+                    break;
+                }
+                case RC_FAIL:
+                {
+                    printf("client: error while decoding\n");
+                    close(sock);
+                    return NULL;
+                }
+                }
+            
+        }
+        return NULL;
+}
 
 void* ConnectThread(void* param) {
     while (connect_if_lost && (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0 ) )
@@ -75,18 +116,20 @@ ret_val P2rClientRelease() {
 ret_val EncodeAndSendMessage(Message_t *message)
 {
     asn_enc_rval_t er;
+    ret_val ret = Error;
     er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, buffer, size);
     if (er.encoded == -1)
     {
         perror("failed to encode");
         printf("Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
-        return EncodingError;
+        ret = EncodingError;
     }
     else
     {
-        send_message(buffer, er.encoded, &sock);
+        ret = send_message(buffer, er.encoded, &sock);
     }
     free(message);
+    return ret;
 }
 
 ret_val SendP2RSpeedLevelNotification(double speed)
@@ -151,6 +194,7 @@ ret_val SendP2RSessionTerminationWarningCancel(long warning_id)
 
 ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason reason )
 {
+    ret_val ret = Error;
     Message_t *message = 0;
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
@@ -168,7 +212,11 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     message->parameters.choice.session_termination_warning.warning_id = warning_id;
     message->parameters.choice.session_termination_warning.reason = reason;
 
-    return EncodeAndSendMessage(message);
+    ret = EncodeAndSendMessage(message);
+    if( ret != Success ) {
+        return ret;
+    }
+    message = receive_message(buffer, size, &sock);
 }
 
 void *P2r_client_test(void *param)
