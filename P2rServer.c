@@ -85,7 +85,7 @@ ret_val MessageParser( Message_t* message, int* sock ) {
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
-        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        //return SendP2RSessionTerminationWarningAck(Cause_success, sock );
         break;
     }    
     default:

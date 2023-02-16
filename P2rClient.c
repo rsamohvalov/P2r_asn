@@ -34,38 +34,38 @@ ret_val send_message(void *send_buffer, size_t send_buffer_size, void *ctx)
     return Success;
 }
 
-Message_t *receive_message( void *buffer, size_t size, void *ctx)
+Message_t *receive_message( void *recv_buffer, size_t recv_size, void *ctx)
 {
     int sock = *((int *)ctx);
     int read_size = 0;
     asn_dec_rval_t rval;
     Message_t *P2R_message = 0;
-        if( (read_size = recv(sock, buffer, size, 0)) > 0)
+    if ((read_size = recv(sock, recv_buffer, recv_size, 0)) > 0)
+    {
+        printf("client: received %d\n", read_size);
+
+        printf("decoding...\n");
+        rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, buffer, read_size);
+        printf("rval.code = %d\n", rval.code);
+        switch (rval.code)
         {
-            printf("client: received %d\n", read_size);
-                
-                printf("decoding...\n");
-                rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, buffer, read_size );
-                printf("rval.code = %d\n", rval.code);
-                switch (rval.code)
-                {
-                case RC_OK:
-                {
-                    printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
-                    return P2R_message;
-                }
-                case RC_WMORE:
-                {
-                    printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
-                    break;
-                }
-                case RC_FAIL:
-                {
-                    printf("client: error while decoding\n");
-                    close(sock);
-                    return NULL;
-                }
-                }
+        case RC_OK:
+        {
+            printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+            return P2R_message;
+        }
+        case RC_WMORE:
+        {
+            printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+            break;
+        }
+        case RC_FAIL:
+        {
+            printf("client: error while decoding\n");
+            close(sock);
+            return NULL;
+        }
+        }
             
         }
         return NULL;
@@ -80,11 +80,11 @@ void* ConnectThread(void* param) {
 }
 
 ret_val P2rClientInit(long id, char* server, unsigned short port ) {    
-    buffer = (char *)malloc(4096);
+    buffer = (char *)malloc(512);
     if( !buffer) {
         return NotEnoughMemory;
     }
-    size = 4096;
+    size = 512;
     
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1)
@@ -216,7 +216,9 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     if( ret != Success ) {
         return ret;
     }
-    message = receive_message(buffer, size, &sock);
+    //message = receive_message(buffer, size, &sock);
+    //printf("client: --------------\n");
+    //asn_fprint(stderr, &asn_DEF_Message, message);
 }
 
 void *P2r_client_test(void *param)
