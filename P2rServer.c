@@ -32,6 +32,7 @@ size_t send_buffer_size = 4096;
 ret_val server_send_message(void *buffer, size_t size, void *ctx)
 {
     int sock = *((int *)ctx);
+    printf("server sending %ld over %d\n", size, sock);
     if (send(sock, send_buffer, send_buffer_size, 0) < 0)
     {
         perror("server send ");
@@ -85,7 +86,7 @@ ret_val MessageParser( Message_t* message, int* sock ) {
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
-        //return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
         break;
     }    
     default:

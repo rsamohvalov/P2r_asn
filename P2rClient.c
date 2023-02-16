@@ -40,6 +40,8 @@ Message_t *receive_message( void *recv_buffer, size_t recv_size, void *ctx)
     int read_size = 0;
     asn_dec_rval_t rval;
     Message_t *P2R_message = 0;
+
+    printf("client recv over %d\n", sock);
     if ((read_size = recv(sock, recv_buffer, recv_size, 0)) > 0)
     {
         printf("client: received %d\n", read_size);
@@ -80,11 +82,11 @@ void* ConnectThread(void* param) {
 }
 
 ret_val P2rClientInit(long id, char* server, unsigned short port ) {    
-    buffer = (char *)malloc(512);
+    buffer = (char *)malloc(4096);
     if( !buffer) {
         return NotEnoughMemory;
     }
-    size = 512;
+    size = 4096;
     
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1)
@@ -216,9 +218,9 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     if( ret != Success ) {
         return ret;
     }
-    //message = receive_message(buffer, size, &sock);
-    //printf("client: --------------\n");
-    //asn_fprint(stderr, &asn_DEF_Message, message);
+    message = receive_message(buffer, size, &sock);
+    printf("client: --------------\n");
+    asn_fprint(stderr, &asn_DEF_Message, message);
 }
 
 void *P2r_client_test(void *param)
