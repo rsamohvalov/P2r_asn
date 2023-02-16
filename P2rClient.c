@@ -216,7 +216,7 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     if( ret != Success ) {
         return ret;
     }
-    //message = receive_message(buffer, size, &sock);
+    message = receive_message(buffer, size, &sock);
 }
 
 void *P2r_client_test(void *param)

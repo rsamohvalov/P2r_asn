@@ -29,7 +29,17 @@ const long fp_id = 11;
 char send_buffer[4096] = {0};
 size_t send_buffer_size = 4096;
 
-extern ret_val send_message(void *buffer, size_t size, void *ctx);
+ret_val server_send_message(void *buffer, size_t size, void *ctx)
+{
+    int sock = *((int *)ctx);
+    if (send(sock, send_buffer, send_buffer_size, 0) < 0)
+    {
+        perror("server send ");
+        printf("server: send failed\n");
+        return ServerIsUnreachable;
+    }
+    return Success;
+}
 
 ret_val ServereEncodeAndSendMessage(Message_t *message, int *sock)
 {
@@ -44,7 +54,7 @@ ret_val ServereEncodeAndSendMessage(Message_t *message, int *sock)
     }
     else
     {
-        ret = send_message(send_buffer, er.encoded, &sock);
+        ret = server_send_message(send_buffer, er.encoded, sock);
     }
     free(message);
     return ret;
@@ -75,7 +85,7 @@ ret_val MessageParser( Message_t* message, int* sock ) {
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
-        //return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
         break;
     }    
     default:
