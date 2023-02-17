@@ -13,6 +13,7 @@
 #include "Message.h"
 #include "Cause.h"
 
+#define SRV_DBG_MSG 1
 typedef enum _ret
 {
     Success = 0,
@@ -32,26 +33,33 @@ size_t send_buffer_size = 4096;
 ret_val server_send_message(void *buffer, size_t size, void *ctx)
 {
     int sock = *((int *)ctx);
-    printf("server sending %ld over %d\n", size, sock);
-    if (send(sock, send_buffer, send_buffer_size, 0) < 0)
+#ifdef SRV_DBG_MSG
+    printf("------- server: call server_send_messages %ld over %d\n", size, sock);
+#endif
+    if (send(sock, buffer, size, 0) < 0)
     {
-        perror("server send ");
-        printf("server: send failed\n");
-        return ServerIsUnreachable;
+#ifdef SRV_DBG_MSG
+        printf("------- server: send failed\n");
+#endif
+      return ServerIsUnreachable;
     }
     return Success;
 }
 
-ret_val ServereEncodeAndSendMessage(Message_t *message, int *sock)
+ret_val ServerEncodeAndSendMessage(Message_t *message, int *sock)
 {
     asn_enc_rval_t er;
     ret_val ret = Error;
+#ifdef SRV_DBG_MSG
+    printf("------- server: ServerEncodeAndSendMessage\n");
+#endif
     er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, send_buffer, send_buffer_size);
     if (er.encoded == -1)
     {
-        perror("failed to encode");
-        printf("Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
-        ret = EncodingError;
+#ifdef SRV_DBG_MSG
+      printf("------- server: Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
+#endif
+      ret = EncodingError;
     }
     else
     {
@@ -64,6 +72,9 @@ ret_val ServereEncodeAndSendMessage(Message_t *message, int *sock)
 ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
 {
     Message_t *message = 0;
+#ifdef SRV_DBG_MSG
+    printf("------- server: SendP2RSessionTerminationWarningAck\n");
+#endif
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
     {
@@ -78,16 +89,18 @@ ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
     message->parameters.present = Parameters_PR_session_termination_warning_ack;
     message->parameters.choice.session_termination_warning_ack.cause = cause;
 
-    return ServereEncodeAndSendMessage(message, sock);
+    return ServerEncodeAndSendMessage(message, sock);
 }
 
 ret_val MessageParser( Message_t* message, int* sock ) {
+#ifdef SRV_DBG_MSG
+    printf("------- server: MessageParser ");
     asn_fprint(stderr, &asn_DEF_Message, message);
+#endif    
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
         return SendP2RSessionTerminationWarningAck(Cause_success, sock );
-        break;
     }    
     default:
         break;
@@ -103,28 +116,35 @@ void *P2r_connection_handler(void *socket_desc)
     Message_t *P2R_message = 0;
     int bytes_processed = 0;
     int more_to_read_offset = 0;
-
+#ifdef SRV_DBG_MSG
+    printf("------- server: P2r_connection_handler\n");
+#endif
     while ( 1 )
     {
         read_size = 0;
 
         while ((read_size = recv(sock, client_message + more_to_read_offset, 4096 - more_to_read_offset, 0)) > 0)
         {
-            printf("server: received %d  more_to_read_offset: %d\n", read_size, more_to_read_offset);
+#ifdef SRV_DBG_MSG
+            printf("------- server: received %d  more_to_read_offset: %d\n", read_size, more_to_read_offset);
+#endif
             memset(&rval, 0, sizeof(asn_dec_rval_t));
             bytes_processed = 0;
             read_size += more_to_read_offset;
             while (bytes_processed < read_size)
             {
                 ASN_STRUCT_RESET(asn_DEF_Message, P2R_message);
-                printf("decoding...\n");
+#ifdef SRV_DBG_MSG
+                printf("------- server: decoding...\n");
+#endif
                 rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, client_message + bytes_processed, read_size - bytes_processed);
-                printf("rval.code = %d\n", rval.code);
                 switch (rval.code)
                 {
                     case RC_OK:
                     {
-                        printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+#ifdef SRV_DBG_MSG
+                        printf("------- server: Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+#endif
                         bytes_processed += rval.consumed;
                         more_to_read_offset = 0;
                         MessageParser(P2R_message, &sock);
@@ -132,7 +152,9 @@ void *P2r_connection_handler(void *socket_desc)
                     }
                     case RC_WMORE:
                     {
-                        printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+#ifdef SRV_DBG_MSG
+                        printf("------- server: Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size - bytes_processed);
+#endif
                         memcpy(client_message, client_message + bytes_processed, read_size - bytes_processed);
                         more_to_read_offset = read_size - bytes_processed;
                         bytes_processed = 9999999;
@@ -140,7 +162,9 @@ void *P2r_connection_handler(void *socket_desc)
                     }
                     case RC_FAIL:
                     {
-                        printf("Serer: error while decoding\n");
+#ifdef SRV_DBG_MSG
+                        printf("------- server: error while decoding\n");
+#endif
                         close(sock);
                         free(socket_desc);
                         return 0;
@@ -154,13 +178,16 @@ void *P2r_connection_handler(void *socket_desc)
         }
         if (read_size == 0)
         {
-            // disconnected
-            printf("disconnected\n");
+#ifdef SRV_DBG_MSG
+            printf("------- server: disconnected\n");
+#endif
             break;
         }
         else if (read_size == -1)
         {
-            printf("recv error\n");
+#ifdef SRV_DBG_MSG
+            printf("------- server: recv error\n");
+#endif
             break;
         }
     }

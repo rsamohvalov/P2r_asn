@@ -2,7 +2,7 @@
 #include "Message.h"
 #include "Reason.h"
 
-
+#define CLNT_DBG_MSG 1
 
 long rm_id = 2;
 void *buffer = 0;
@@ -25,6 +25,9 @@ typedef enum _ret
 
 ret_val send_message(void *send_buffer, size_t send_buffer_size, void *ctx)
 {
+#ifdef CLNT_DBG_MSG
+    printf("******* client: send_message size = %ld\n", send_buffer_size );
+#endif
     int sock = *((int *)ctx);
     if (send(sock, send_buffer, send_buffer_size, 0) < 0)
     {
@@ -41,35 +44,49 @@ Message_t *receive_message( void *recv_buffer, size_t recv_size, void *ctx)
     asn_dec_rval_t rval;
     Message_t *P2R_message = 0;
 
-    printf("client recv over %d\n", sock);
+#ifdef CLNT_DBG_MSG
+    printf("******* client: recieve_message\n");
+#endif
+
     if ((read_size = recv(sock, recv_buffer, recv_size, 0)) > 0)
     {
-        printf("client: received %d\n", read_size);
-
-        printf("decoding...\n");
+#ifdef CLNT_DBG_MSG
+        printf("******* client: received %d\n", read_size);
+#endif
+#ifdef CLNT_DBG_MSG
+        printf("******* client: decoding %d\n", read_size);
+#endif
         rval = asn_decode(0, ATS_DER, &asn_DEF_Message, (void **)&P2R_message, buffer, read_size);
-        printf("rval.code = %d\n", rval.code);
+#ifdef CLNT_DBG_MSG
+        printf("******* client: rval.code = %d\n", rval.code);
+#endif
         switch (rval.code)
         {
         case RC_OK:
         {
-            printf("Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+#ifdef CLNT_DBG_MSG
+            printf("******* client: Decoded OK. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+#endif
             return P2R_message;
         }
         case RC_WMORE:
         {
-            printf("Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+#ifdef CLNT_DBG_MSG
+            printf("******* client: Decoded partily. Consumed %ld bytes of %d. Calling endpoint\n", rval.consumed, read_size);
+#endif
             break;
         }
         case RC_FAIL:
         {
-            printf("client: error while decoding\n");
+#ifdef CLNT_DBG_MSG
+            printf("******* client: error while decoding\n");
+#endif
             close(sock);
             return NULL;
         }
         }
             
-        }
+    }
         return NULL;
 }
 
@@ -119,11 +136,15 @@ ret_val EncodeAndSendMessage(Message_t *message)
 {
     asn_enc_rval_t er;
     ret_val ret = Error;
+#ifdef CLNT_DBG_MSG
+    printf("******* client: EncodeAndSendMessage\n");
+#endif
     er = asn_encode_to_buffer(0, ATS_DER, &asn_DEF_Message, message, buffer, size);
     if (er.encoded == -1)
     {
-        perror("failed to encode");
-        printf("Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
+#ifdef CLNT_DBG_MSG
+        printf("******* client: Failed to encode %s  %s\n", asn_DEF_Message.name, er.failed_type->name);
+#endif
         ret = EncodingError;
     }
     else
@@ -137,6 +158,9 @@ ret_val EncodeAndSendMessage(Message_t *message)
 ret_val SendP2RSpeedLevelNotification(double speed)
 {
     Message_t *message = 0;
+#ifdef CLNT_DBG_MSG
+    printf("******* client: SendP2RSpeedLevelNotification\n");
+#endif
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
     {
@@ -157,6 +181,9 @@ ret_val SendP2RSpeedLevelNotification(double speed)
 ret_val SendP2RSessionRestoreWarning(long time)
 {
     Message_t *message = 0;
+#ifdef CLNT_DBG_MSG
+    printf("******* client: SendP2RSessionRestoreWarning\n");
+#endif
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
     {
@@ -177,6 +204,9 @@ ret_val SendP2RSessionRestoreWarning(long time)
 ret_val SendP2RSessionTerminationWarningCancel(long warning_id)
 {
     Message_t *message = 0;
+#ifdef CLNT_DBG_MSG
+    printf("******* client: SendP2RSessionTerminationWarningCancel\n");
+#endif
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
     {
@@ -198,6 +228,9 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
 {
     ret_val ret = Error;
     Message_t *message = 0;
+#ifdef CLNT_DBG_MSG
+    printf("******* client: SendP2RSessionTerminationWarning\n");
+#endif
     message = (Message_t *)calloc(1, sizeof(Message_t));
     if (!message)
     {
@@ -218,9 +251,16 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     if( ret != Success ) {
         return ret;
     }
+#ifdef CLNT_DBG_MSG
+    printf("******* client: call receive\n");
+#endif
     message = receive_message(buffer, size, &sock);
-    printf("client: --------------\n");
+    if( message ) {
+#ifdef CLNT_DBG_MSG
+    printf("******* client: ");
     asn_fprint(stderr, &asn_DEF_Message, message);
+#endif
+    }
 }
 
 void *P2r_client_test(void *param)
