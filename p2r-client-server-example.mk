@@ -8,8 +8,6 @@ ASN_PROGRAM_SRCS ?= \
 	p2r-client-server-example.c\
 	P2rServer.c \
 	P2rClient.c
-#pdu_collection.c
-
 
 all: $(ASN_PROGRAM)
 
