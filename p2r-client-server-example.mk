@@ -6,9 +6,10 @@ ASN_LIBRARY ?= libasncodec.a
 ASN_PROGRAM ?= p2r-client-server-example
 ASN_PROGRAM_SRCS ?= \
 	p2r-client-server-example.c\
-	pdu_collection.c \
 	P2rServer.c \
 	P2rClient.c
+#pdu_collection.c
+
 
 all: $(ASN_PROGRAM)
 
