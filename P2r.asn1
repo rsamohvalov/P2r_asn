@@ -1,0 +1,70 @@
+
+P2r DEFINITIONS AUTOMATIC TAGS ::= BEGIN
+
+ProtocolVersion ::= SEQUENCE {
+    major-version INTEGER(0..32),
+    minor-version INTEGER(0..64)
+}
+
+ConnectionId ::= SEQUENCE {
+	fp-id INTEGER(0..255),
+    rm-id INTEGER(0..255)
+}
+
+Message ::= SEQUENCE {
+    protocol-version ProtocolVersion,
+    message-type MessageTypes,
+    connection-id ConnectionId,
+    parameters Parameters
+}
+
+MessageTypes ::= ENUMERATED {
+    none (0),
+    id-p2r-session-termination-warning (1),
+    id-p2r-session-termination-warning-ack (2),
+    id-p2r-session-termination-warning-cancel (3),
+    id-p2r-session-restore-warning (4),
+    id-p2r-speed-level-notification (5),
+    ...
+}
+
+Cause ::= ENUMERATED {undefined (0), success (1), timeout (2), error (3), no-resources (4), ... }
+Reason ::= ENUMERATED { unknown (0), planned (1), unplanned (2), ...}
+
+P2RSessionTerminationWarning ::= SEQUENCE {
+    warning-id INTEGER(0..65535),
+    reason Reason,
+    estimated-time INTEGER(0..65535),
+    ...
+}
+
+P2RSessionTerminationWarningAck ::= SEQUENCE {
+    cause Cause,
+    ...
+}
+
+P2RSessionTerminationWarningCancel ::= SEQUENCE {
+    warning-id INTEGER(0..65535),
+    ...
+}
+
+P2RSessionRestoreWarning ::= SEQUENCE {
+   estimated-time INTEGER(0..255),
+    ...
+}
+
+P2RSpeedLevelNotification ::= SEQUENCE {
+    speed REAL,
+    ...
+}
+
+Parameters ::= CHOICE {
+        session-termination-warning P2RSessionTerminationWarning,
+        session-termination-warning-ack P2RSessionTerminationWarningAck,
+        session-termination-warning-cancel P2RSessionTerminationWarningCancel,
+        session-restore-warning P2RSessionRestoreWarning,
+        speed-level-notification P2RSpeedLevelNotification,
+        ...
+}
+
+END
