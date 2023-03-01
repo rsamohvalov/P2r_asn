@@ -23,33 +23,15 @@
 #include <asn_internal.h>    /* for ASN__DEFAULT_STACK_MAX */
 
 
-#include "P2rServer.h"
-#include "P2rClient.h"
+#include "api/P2r_client_api.h"
+#include "api/P2r_server_api.h"
 
 int
 main(int ac, char *av[]) {
 ////////////////////////
-{
-        pthread_t server_thread;
-        unsigned short port = 6666;
-        if (pthread_create(&server_thread, NULL, P2r_server_thread, &port) < 0)
-        {
-            perror("could not create thread");
-        }
-}
-    sleep(1);
-{
-        pthread_t client_thread;
-        if (pthread_create(&client_thread, NULL, P2r_client_test, NULL) < 0)
-        {
-            perror("could not create thread");
-           
-        }
-        else{
-            pthread_join(client_thread, 0);
-        }
-}
-    return 0;
+StopServer();
+P2rClientRelease();
+return 0;
 ///////////////////////
 }
 

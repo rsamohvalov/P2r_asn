@@ -2,6 +2,8 @@
 #include "Message.h"
 #include "Reason.h"
 
+#include "api/P2r_client_api.h"
+
 #define CLNT_DBG_MSG 1
 
 long rm_id = 2;
@@ -13,7 +15,7 @@ struct sockaddr_in server_addr;
 const long P2r_proto_major = 1;
 const long P2r_proto_minor = 0;
 
-typedef enum _ret
+/*typedef enum _ret
 {
   Success = 0,
   NotEnoughMemory = 1,
@@ -22,6 +24,7 @@ typedef enum _ret
   EncodingError = 4,
   Error = 5
 } ret_val;
+*/
 
 ret_val send_message(void *send_buffer, size_t send_buffer_size, void *ctx)
 {
@@ -98,7 +101,7 @@ void* ConnectThread(void* param) {
     // call restore_connection_callback();
 }
 
-ret_val P2rClientInit(long id, char* server, unsigned short port ) {    
+ret_val P2rClientInit(long id, const char* server, unsigned short port ) {    
     buffer = (char *)malloc(4096);
     if( !buffer) {
         return NotEnoughMemory;
@@ -224,7 +227,7 @@ ret_val SendP2RSessionTerminationWarningCancel(long warning_id)
     return EncodeAndSendMessage(message);
 }
 
-ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason reason )
+ret_val SendP2RSessionTerminationWarning(long time, long warning_id, int reason )
 {
     ret_val ret = Error;
     Message_t *message = 0;
@@ -245,7 +248,7 @@ ret_val SendP2RSessionTerminationWarning(long time, long warning_id, e_Reason re
     message->parameters.present = Parameters_PR_session_termination_warning;
     message->parameters.choice.session_termination_warning.estimated_time = time;
     message->parameters.choice.session_termination_warning.warning_id = warning_id;
-    message->parameters.choice.session_termination_warning.reason = reason;
+    message->parameters.choice.session_termination_warning.reason = (e_Reason)reason;
 
     ret = EncodeAndSendMessage(message);
     if( ret != Success ) {

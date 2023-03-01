@@ -13,8 +13,10 @@
 #include "Message.h"
 #include "Cause.h"
 
+#include "api/P2r_server_api.h"
+
 #define SRV_DBG_MSG 1
-typedef enum _ret
+/*typedef enum _ret
 {
     Success = 0,
     NotEnoughMemory = 1,
@@ -22,11 +24,11 @@ typedef enum _ret
     ServerIsUnreachable = 3,
     EncodingError = 4,
     Error = 5
-} ret_val;
+} ret_val;*/
 
 extern long P2r_proto_major;
 extern long P2r_proto_minor;
-const long fp_id = 11;
+long server_id = 11;
 char send_buffer[4096] = {0};
 size_t send_buffer_size = 4096;
 
@@ -83,7 +85,7 @@ ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
     message->protocol_version.major_version = P2r_proto_major;
     message->protocol_version.minor_version = P2r_proto_minor;
     message->connection_id.fp_id = 0;
-    message->connection_id.rm_id = fp_id;
+    message->connection_id.rm_id = server_id;
 
     message->message_type = MessageTypes_id_p2r_session_termination_warning_ack;
     message->parameters.present = Parameters_PR_session_termination_warning_ack;
@@ -92,7 +94,10 @@ ret_val SendP2RSessionTerminationWarningAck(e_Cause cause, int* sock)
     return ServerEncodeAndSendMessage(message, sock);
 }
 
-ret_val MessageParser( Message_t* message, int* sock ) {
+ApiCallTable* callbacks = NULL;
+
+ret_val MessageParser(Message_t *message, int *sock)
+{
 #ifdef SRV_DBG_MSG
     printf("------- server: MessageParser ");
     asn_fprint(stderr, &asn_DEF_Message, message);
@@ -100,7 +105,16 @@ ret_val MessageParser( Message_t* message, int* sock ) {
     switch (message->message_type)
     {
     case MessageTypes_id_p2r_session_termination_warning: {
-        return SendP2RSessionTerminationWarningAck(Cause_success, sock );
+        int ret = 3;
+        if (callbacks && callbacks->terminate_callback)
+        {
+            struct_TerminateWarning terminate;
+            terminate.fp_id = message->connection_id.fp_id;
+            terminate.warning_id = message->parameters.choice.session_termination_warning.warning_id;
+            terminate.timeout = message->parameters.choice.session_termination_warning.estimated_time;
+            ret = callbacks->terminate_callback(terminate);
+        }
+        return SendP2RSessionTerminationWarningAck( (e_Cause)ret, sock );
     }    
     default:
         break;
@@ -197,10 +211,14 @@ void *P2r_connection_handler(void *socket_desc)
     return 0;
 }
 
-int P2r_server_start(unsigned short port) {
+int socket_desc = -1;
+ret_val InitServer(char *addr, unsigned short port, int id, ApiCallTable *callbacks)
+{
+    // int P2r_server_start(unsigned short port) {
     int socket_desc, client_sock, c, *new_sock;
     struct sockaddr_in server, client;
 
+    
     // Create socket
     socket_desc = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_desc == -1)
@@ -209,7 +227,7 @@ int P2r_server_start(unsigned short port) {
     }
     // Prepare the sockaddr_in structure
     server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_addr.s_addr = inet_addr(addr); // INADDR_ANY;
     server.sin_port = htons(port);
 
     // Bind
@@ -221,6 +239,8 @@ int P2r_server_start(unsigned short port) {
     }
     printf("bind done \n");
 
+    server_id = id;
+    callbacks = callbacks;
     // Listen
     listen(socket_desc, 3);
 
@@ -256,7 +276,16 @@ int P2r_server_start(unsigned short port) {
     return 0;
 }
 
+ret_val StopServer() {
+    if (socket_desc != -1 ) {
+        close(socket_desc);
+    }
+    return Success;
+}
+
+/*
 void *P2r_server_thread(void *param) {
     P2r_server_start(*((unsigned short *)param));
     return 0;
 }
+*/

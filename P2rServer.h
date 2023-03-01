@@ -7,4 +7,4 @@
 #include <pthread.h>
 
 void* P2r_server_thread(void* param);
-int P2r_server_start(unsigned short port);
+//int P2r_server_start(unsigned short port);
